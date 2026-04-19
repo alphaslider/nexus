@@ -251,7 +251,7 @@
         <div class="fx-card">
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-bottom: 7px;">
                 <h3 style="border:none; padding:0; margin:0;">Tape Echo</h3>
-                <button id="fx-echo-bypass" onclick="toggleEchoBypass()" style="padding: 2px 6px; font-size: 8px; color: #fff;">ACTIVE</button>
+                <button id="fx-echo-bypass" onclick="toggleEchoBypass()" style="padding: 2px 6px; font-size: 8px; color: #888;">BYPASS</button>
             </div>
             <div class="fx-param">
                 <label>Time <span id="val-e1">300ms</span></label>
@@ -281,7 +281,7 @@
 let audioCtx, vco1, mainGain, beepVolGain, convolver, verbGain, masterOutput, sampVolGain;
 // Sampler Reverb Nodes
 let sampDryGain, sampWetGain, sampSendGain, sampConvolver;
-// NEW: Acid Nodes
+// Acid Nodes
 let acidFilter, acidDistortion;
 
 let step = 0, timer, currentBank = 0, isRunning = false, isSongMode = false, songStep = 0, clipboard = null;
@@ -291,7 +291,7 @@ let songArrangement = [0, 0, 1, 1];
 let analyser, meterArray, meterLevel = 0, distortionNode;
 let delayNode, delayFeedback, delayFilter, delayWet, delayDry;
 let synthLfo, synthLfoGain;
-let isEchoBypassed = false;
+let isEchoBypassed = true;
 const meterLeds = [];
 
 let samplerState = {}; let trackCounter = 0;
@@ -452,7 +452,7 @@ function initAudio() {
     convolver = audioCtx.createConvolver();
     distortionNode = audioCtx.createWaveShaper();
     
-    // NEW ACID NODES
+    // ACID NODES
     acidFilter = audioCtx.createBiquadFilter();
     acidFilter.type = 'lowpass';
     acidFilter.frequency.value = document.getElementById('fx-acid-cutoff').value;
@@ -484,7 +484,7 @@ function initAudio() {
     analyser.fftSize = 256;
     meterArray = new Uint8Array(analyser.frequencyBinCount);
 
-    // Synth Routing (Updated for Acid integration)
+    // Synth Routing
     vco1.connect(acidFilter); 
     acidFilter.connect(acidDistortion);
     acidDistortion.connect(mainGain); 
@@ -1016,11 +1016,14 @@ function tick() {
             vco1.frequency.setValueAtTime(targetFreq, now);
         }
         
-        mainGain.gain.cancelScheduledValues(now); mainGain.gain.setValueAtTime(0, now);
-        mainGain.gain.linearRampToValueAtTime(0.4, now + 0.005); 
-        mainGain.gain.exponentialRampToValueAtTime(bSus, now + p.decay);
+        // Anti-click envelope
+        mainGain.gain.cancelScheduledValues(now);
+        mainGain.gain.setValueAtTime(mainGain.gain.value, now);
+        mainGain.gain.linearRampToValueAtTime(0, now + 0.002);
+        mainGain.gain.linearRampToValueAtTime(0.4, now + 0.014); 
+        mainGain.gain.exponentialRampToValueAtTime(bSus > 0 ? bSus : 0.0001, now + 0.014 + p.decay);
 
-        // NEW: Acid Filter Envelope Sweep
+        // Acid Filter Envelope Sweep
         if(acidFilter && b.preset === 'acid') {
             let baseCutoff = parseFloat(document.getElementById('fx-acid-cutoff').value);
             let sweepPeak = baseCutoff + 3000;
